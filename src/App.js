@@ -1,0 +1,950 @@
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { loadProgress, recordAnswer, recordSessionStart, recordSessionEnd } from './lib/progress';
+import { loadParentSettings, saveParentSettings } from './lib/parentSettings';
+import { useSessionTimer } from './hooks/useSessionTimer';
+import SplashScreen from './components/SplashScreen';
+import HelpModal from './components/HelpModal';
+
+/**
+ * Parent Panel Components
+ */
+
+const PINPad = ({ correctPin, onAuthenticated, onSetPin }) => {
+  const [input, setInput] = useState('');
+  const [error, setError] = useState(false);
+
+  const handleDigit = (digit) => {
+    if (input.length < 4) {
+      const newVal = input + digit;
+      setInput(newVal);
+      if (newVal.length === 4) {
+        if (!correctPin || newVal === correctPin) {
+          if (!correctPin) onSetPin(newVal);
+          onAuthenticated();
+        } else {
+          setError(true);
+          setTimeout(() => { setError(false); setInput(''); }, 600);
+        }
+      }
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center">
+      <p className="text-stone-600 font-black mb-4 uppercase tracking-widest text-xs">
+        {correctPin ? 'Enter Parent PIN' : 'Set Parent PIN'}
+      </p>
+      <div className="flex gap-2 mb-6">
+        {[...Array(4)].map((_, i) => (
+          <div key={i} className={`w-3 h-3 rounded-full border-2 transition-all ${input.length > i ? 'bg-stone-800 border-stone-800' : 'border-stone-300'} ${error ? 'bg-rose-500 border-rose-500 animate-shake' : ''}`} />
+        ))}
+      </div>
+      <div className="grid grid-cols-3 gap-3">
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 'C', 0, '⌫'].map((btn) => (
+          <button
+            key={btn}
+            onClick={() => {
+              if (btn === 'C') setInput('');
+              else if (btn === '⌫') setInput(input.slice(0, -1));
+              else handleDigit(btn);
+            }}
+            className="w-12 h-12 rounded-full bg-stone-100 font-black text-stone-700 active:bg-stone-200 shadow-sm border-b-2 border-stone-300"
+          >
+            {btn}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const ParentSummary = ({ stats }) => {
+  const accuracy = stats.totalQuestionsAnswered > 0 
+    ? Math.round((stats.totalCorrectAnswers / stats.totalQuestionsAnswered) * 100) 
+    : 0;
+
+  const formatTime = (seconds) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="bg-stone-50 p-3 rounded-2xl border-b-2 border-stone-200">
+          <p className="text-[10px] font-black text-stone-400 uppercase">Accuracy</p>
+          <p className="text-xl font-black text-green-600">{accuracy}%</p>
+        </div>
+        <div className="bg-stone-50 p-3 rounded-2xl border-b-2 border-stone-200">
+          <p className="text-[10px] font-black text-stone-400 uppercase">Streak</p>
+          <p className="text-xl font-black text-orange-500">{stats.streakBest}</p>
+        </div>
+        <div className="bg-stone-50 p-3 rounded-2xl border-b-2 border-stone-200">
+          <p className="text-[10px] font-black text-stone-400 uppercase">Questions</p>
+          <p className="text-xl font-black text-stone-700">{stats.totalQuestionsAnswered}</p>
+        </div>
+        <div className="bg-stone-50 p-3 rounded-2xl border-b-2 border-stone-200">
+          <p className="text-[10px] font-black text-stone-400 uppercase">Play Time</p>
+          <p className="text-[13px] font-black text-stone-700">{formatTime(stats.totalPlayTimeSeconds)}</p>
+        </div>
+      </div>
+      
+      <div className="bg-white rounded-2xl border border-stone-100 overflow-hidden">
+        <table className="w-full text-left border-collapse">
+          <thead>
+            <tr className="bg-stone-50 text-[9px] font-black uppercase text-stone-400">
+              <th className="p-2">Difficulty</th>
+              <th className="p-2 text-right">Done</th>
+              <th className="p-2 text-right">Correct</th>
+            </tr>
+          </thead>
+          <tbody className="text-[11px] font-bold text-stone-600">
+            {Object.entries(stats.perDifficultyStats).map(([diff, data]) => (
+              <tr key={diff} className="border-t border-stone-50">
+                <td className="p-2 capitalize">{diff}</td>
+                <td className="p-2 text-right">{data.answered}</td>
+                <td className="p-2 text-right">{data.correct}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const ParentSettingsPanel = ({ settings, onUpdate }) => {
+  const toggleLock = (key) => {
+    onUpdate({ ...settings, locks: { ...settings.locks, [key]: !settings.locks[key] } });
+  };
+
+  const toggleArray = (key, value) => {
+    const arr = settings[key];
+    const newArr = arr.includes(value) 
+      ? arr.length > 1 ? arr.filter(v => v !== value) : arr 
+      : [...arr, value];
+    onUpdate({ ...settings, [key]: newArr });
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-[10px] font-black text-stone-400 uppercase mb-2">Session Limit</p>
+        <div className="flex flex-wrap gap-2">
+          {[0, 5, 10, 15, 20, 30].map(mins => (
+            <button
+              key={mins}
+              onClick={() => onUpdate({ ...settings, sessionTimeLimit: mins })}
+              className={`px-3 py-1.5 rounded-full text-[10px] font-black border-b-2 transition-all ${settings.sessionTimeLimit === mins ? 'bg-stone-800 text-white border-stone-900' : 'bg-stone-100 text-stone-500 border-stone-200'}`}
+            >
+              {mins === 0 ? 'None' : `${mins}m`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="bg-stone-50 p-3 rounded-2xl flex items-center justify-between border-b-2 border-stone-200">
+        <div>
+          <p className="text-[11px] font-black text-stone-700">Gentle Stop</p>
+          <p className="text-[9px] text-stone-400 font-bold">Finish current question before break</p>
+        </div>
+        <button 
+          onClick={() => onUpdate({ ...settings, stopAfterCurrentQuestion: !settings.stopAfterCurrentQuestion })}
+          className={`w-10 h-5 rounded-full relative transition-colors ${settings.stopAfterCurrentQuestion ? 'bg-green-500' : 'bg-stone-300'}`}
+        >
+          <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full transition-all ${settings.stopAfterCurrentQuestion ? 'left-5.5' : 'left-0.5'}`} />
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <p className="text-[10px] font-black text-stone-400 uppercase">Lock Settings</p>
+        {Object.entries({ theme: 'Theme', difficulty: 'Difficulty', gameMode: 'Game Mode' }).map(([key, label]) => (
+          <div key={key} className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-stone-600">{label}</span>
+            <button 
+              onClick={() => toggleLock(key)}
+              className={`p-1.5 rounded-lg transition-colors ${settings.locks[key] ? 'text-rose-500 bg-rose-50' : 'text-stone-300 hover:bg-stone-50'}`}
+            >
+              {settings.locks[key] ? '🔒' : '🔓'}
+            </button>
+          </div>
+        ))}
+      </div>
+
+      <div className="space-y-2 pt-2 border-t border-stone-100">
+        <p className="text-[10px] font-black text-stone-400 uppercase">Allowed Themes</p>
+        <div className="flex gap-2">
+          {['garden', 'ocean', 'space'].map(t => (
+            <button key={t} onClick={() => toggleArray('allowedThemes', t)} className={`px-2 py-1 rounded-lg text-[9px] font-black capitalize border-b-2 transition-all ${settings.allowedThemes.includes(t) ? 'bg-green-100 text-green-700 border-green-200' : 'bg-stone-50 text-stone-300 border-stone-100'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Main App Component
+ */
+function App() {
+  // Global Game State
+  const [gameMode, setGameMode] = useState('phonics'); 
+  const [difficulty, setDifficulty] = useState('intermediate'); 
+  const [theme, setTheme] = useState('garden'); 
+  const [problem, setProblem] = useState({ prompt: '', options: [], answer: '' });
+  const [seeds, setSeeds] = useState(0); 
+  const [level, setLevel] = useState(1);
+  const [garden, setGarden] = useState([]); 
+  const [feedback, setFeedback] = useState({ message: '', type: '' });
+  const feedbackTimeoutRef = useRef(null);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const [currentTargetPlant, setCurrentTargetPlant] = useState('/assets/reading/bud-garden-reading.svg');
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [showSplash, setShowSplash] = useState(() => sessionStorage.getItem('reading_sprouts_seen_splash') !== '1');
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [hintedOptionIndex, setHintedOptionIndex] = useState(null);
+  const [deferredPrompt, setDeferredPrompt] = useState(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+
+  // Parent Controls State
+  const [parentSettings, setParentSettings] = useState(loadParentSettings());
+  const [stats, setStats] = useState(loadProgress());
+  const [showParentModal, setShowParentModal] = useState(false);
+  const [isParentAuthenticated, setIsParentAuthenticated] = useState(false);
+  const [parentActiveTab, setParentActiveTab] = useState('stats');
+  const [showSessionEnd, setShowSessionEnd] = useState(false);
+  const [pendingSessionEnd, setPendingSessionEnd] = useState(false);
+
+  // Customization Assets
+  const plantAssets = {
+    garden: [
+      '/assets/reading/bud-garden-reading.svg', '/assets/garden/plant-2.png', '/assets/garden/plant-3.png', '/assets/garden/plant-4.png',
+      '/assets/garden/plant-5.png', '/assets/garden/plant-6.png', '/assets/garden/plant-7.png', '/assets/garden/plant-8.png'
+    ],
+    ocean: [
+      '/assets/reading/bud-ocean-reading.svg', '/assets/ocean/ocean-2.png', '/assets/ocean/ocean-3.png', '/assets/ocean/ocean-4.png',
+      '/assets/ocean/ocean-5.png', '/assets/ocean/ocean-6.png', '/assets/ocean/ocean-7.png', '/assets/ocean/ocean-8.png'
+    ],
+    space: [
+      '/assets/reading/bud-space-reading.svg', '/assets/space/astro-2.png', '/assets/space/astro-3.png', '/assets/space/astro-4.png',
+      '/assets/space/astro-5.png', '/assets/space/astro-6.png', '/assets/space/astro-7.png', '/assets/space/astro-8.png'
+    ]
+  };
+
+  const plantAssetsRef = useRef(plantAssets);
+
+  const themeConfig = {
+    garden: {
+      bg: 'bg-green-50',
+      accent: 'text-green-700',
+      headerBg: 'bg-yellow-200',
+      headerBorder: 'border-yellow-400',
+      problemBorder: 'border-green-200',
+      btnColors: ['bg-rose-400 border-rose-600', 'bg-sky-400 border-sky-600', 'bg-amber-400 border-amber-600'],
+      progressGradient: 'from-green-400 to-yellow-400',
+      mascot: '/assets/reading/mascot-garden-reading.svg',
+      helper: '/assets/reading/helper-garden-reading.svg',
+      themeColor: 'bg-green-400',
+      seedName: 'Sprout',
+      bud: '/assets/reading/bud-garden-reading.svg',
+      balanceAsset: '/assets/balance-seed.png'
+    },
+    ocean: {
+      bg: 'bg-cyan-50',
+      accent: 'text-cyan-700',
+      headerBg: 'bg-blue-200',
+      headerBorder: 'border-blue-400',
+      problemBorder: 'border-cyan-200',
+      btnColors: ['bg-teal-400 border-teal-600', 'bg-blue-400 border-blue-600', 'bg-indigo-400 border-indigo-600'],
+      progressGradient: 'from-cyan-400 to-blue-400',
+      mascot: '/assets/reading/mascot-ocean-reading.svg',
+      helper: '/assets/reading/helper-ocean-reading.svg',
+      themeColor: 'bg-blue-400',
+      seedName: 'Whale',
+      bud: '/assets/reading/bud-ocean-reading.svg',
+      balanceAsset: '/assets/balance-whale.png'
+    },
+    space: {
+      bg: 'bg-slate-900',
+      accent: 'text-purple-400',
+      headerBg: 'bg-purple-900',
+      headerBorder: 'border-purple-500',
+      problemBorder: 'border-purple-800',
+      btnColors: ['bg-fuchsia-500 border-fuchsia-700', 'bg-violet-500 border-violet-700', 'bg-pink-500 border-pink-700'],
+      progressGradient: 'from-purple-500 to-pink-500',
+      textColor: 'text-slate-200',
+      mascot: '/assets/reading/mascot-space-reading.svg',
+      helper: '/assets/reading/helper-space-reading.svg',
+      themeColor: 'bg-purple-600',
+      seedName: 'Asteroid',
+      bud: '/assets/reading/bud-space-reading.svg',
+      balanceAsset: '/assets/balance-asteroid.png'
+    }
+  };
+
+  const currentTheme = themeConfig[theme];
+
+  // Session Timer Hook
+  const handleTimeUp = useCallback(() => {
+    if (parentSettings.stopAfterCurrentQuestion) {
+      setPendingSessionEnd(true);
+    } else {
+      setShowSessionEnd(true);
+    }
+  }, [parentSettings.stopAfterCurrentQuestion]);
+
+  const { elapsedSeconds } = useSessionTimer(parentSettings.sessionTimeLimit, handleTimeUp);
+
+  // Initialize data on mount
+  useEffect(() => {
+    try {
+      recordSessionStart();
+      const loadedSettings = loadParentSettings();
+      setParentSettings(loadedSettings);
+      // Ensure initial settings respect locks using functional updates
+      if (loadedSettings.allowedThemes.length > 0) {
+        setTheme(prev => loadedSettings.allowedThemes.includes(prev) ? prev : loadedSettings.allowedThemes[0]);
+      }
+      if (loadedSettings.allowedDifficulties.length > 0) {
+        setDifficulty(prev => loadedSettings.allowedDifficulties.includes(prev) ? prev : loadedSettings.allowedDifficulties[0]);
+      }
+      if (loadedSettings.allowedModes.length > 0) {
+        setGameMode(prev => loadedSettings.allowedModes.includes(prev) ? prev : loadedSettings.allowedModes[0]);
+      }
+
+      // PWA Install Prompt
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        setDeferredPrompt(e);
+        setShowInstallBanner(true);
+      });
+
+      window.addEventListener('appinstalled', () => {
+        setDeferredPrompt(null);
+        setShowInstallBanner(false);
+        console.log('Reading Sprouts was installed');
+      });
+
+      // Check if it's iOS and not already installed
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+      const isStandaloneMq = typeof window.matchMedia === 'function' ? window.matchMedia('(display-mode: standalone)').matches : false;
+      const isStandalone = isStandaloneMq || window.navigator.standalone;
+      if (isIOS && !isStandalone) {
+        setShowInstallBanner(true);
+      }
+    } catch (err) {
+      // Log initialization errors for tests
+      console.error('App init error', err);
+    }
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      setDeferredPrompt(null);
+      setShowInstallBanner(false);
+    }
+  };
+
+  // Ensure any feedback timeout is cleared on unmount
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+    };
+  }, []);
+
+  // Update Settings
+  const updateSettings = (newSettings) => {
+    setParentSettings(newSettings);
+    saveParentSettings(newSettings);
+  };
+
+  // Generate a new problem based on level and difficulty
+
+  // --- Reading content banks (kept lightweight + theme-aware) ---
+  const THEME_WORDS = {
+    garden: {
+      beginner: ['sun', 'bug', 'seed', 'leaf', 'dirt', 'root', 'tree', 'frog'],
+      intermediate: ['garden', 'flower', 'rainbow', 'sprout', 'pumpkin', 'butterfly'],
+      advanced: ['photosynthesis', 'pollination', 'hibernate', 'camouflage', 'germinate']
+    },
+    ocean: {
+      beginner: ['fish', 'wave', 'sand', 'reef', 'crab', 'shark', 'boat', 'seal'],
+      intermediate: ['octopus', 'seahorse', 'turtle', 'dolphin', 'current', 'coral'],
+      advanced: ['bioluminescent', 'ecosystem', 'plankton', 'migration', 'pressure']
+    },
+    space: {
+      beginner: ['star', 'moon', 'rock', 'sun', 'ship', 'mars', 'ring', 'alien'],
+      intermediate: ['rocket', 'planet', 'galaxy', 'comet', 'asteroid', 'orbit'],
+      advanced: ['constellation', 'atmosphere', 'gravity', 'telescope', 'astronaut']
+    }
+  };
+
+  const SIGHT_WORDS = {
+    beginner: ['the', 'and', 'to', 'a', 'I', 'you', 'we', 'see'],
+    intermediate: ['said', 'come', 'here', 'what', 'when', 'they', 'were', 'because'],
+    advanced: ['through', 'thought', 'enough', 'people', 'different', 'another', 'answer', 'between']
+  };
+
+  const STORY_TEMPLATES = {
+    garden: [
+      { t: 'The {__} grew from a tiny seed.', a: 'plant', d: ['rock', 'cloud'] },
+      { t: 'A {__} buzzed by the flowers.', a: 'bee', d: ['train', 'moon'] },
+      { t: 'We water the {__} to help them grow.', a: 'plants', d: ['stars', 'shoes'] }
+    ],
+    ocean: [
+      { t: 'The {__} swims near the coral reef.', a: 'fish', d: ['kite', 'leaf'] },
+      { t: 'A {__} pinches with its claws.', a: 'crab', d: ['book', 'star'] },
+      { t: 'Big waves splash the {__}.', a: 'shore', d: ['desk', 'garden'] }
+    ],
+    space: [
+      { t: 'The rocket blasts into {__}.', a: 'space', d: ['sand', 'puddle'] },
+      { t: 'The {__} shines at night.', a: 'moon', d: ['carrot', 'fish'] },
+      { t: 'A {__} orbits a planet.', a: 'satellite', d: ['mushroom', 'boot'] }
+    ]
+  };
+
+  const difficultyKey = (d) => (d === 'beginner' ? 'beginner' : d === 'advanced' ? 'advanced' : 'intermediate');
+
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+  const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
+
+  const generateProblem = useCallback(() => {
+    const diffKey = difficultyKey(difficulty);
+    const themeWords = THEME_WORDS[theme][diffKey];
+
+    // 1) Phonics: choose the word that starts with the shown letter
+    if (gameMode === 'phonics') {
+      const correctWord = pick(themeWords);
+      const letter = correctWord[0].toUpperCase();
+
+      // distractors: words that do NOT start with the same letter
+      const distractPool = themeWords.filter(w => w[0].toUpperCase() !== letter);
+      const d1 = pick(distractPool.length ? distractPool : THEME_WORDS[theme]['beginner']);
+      const d2 = pick(distractPool.length ? distractPool : THEME_WORDS[theme]['intermediate']);
+
+      const options = shuffle([correctWord, d1, d2]).map(w => w.toLowerCase());
+      setProblem({
+        prompt: `Which word starts with “${letter}”?`,
+        options,
+        answer: correctWord.toLowerCase()
+      });
+      return;
+    }
+
+    // 2) Sight Words: tap the target sight word
+    if (gameMode === 'sight') {
+      const target = pick(SIGHT_WORDS[diffKey]).toLowerCase();
+      const pool = shuffle([...SIGHT_WORDS[diffKey], ...SIGHT_WORDS['beginner'], ...SIGHT_WORDS['intermediate']])
+        .map(w => w.toLowerCase())
+        .filter(w => w !== target);
+
+      const options = shuffle([target, pool[0], pool[1]]).slice(0, 3);
+      setProblem({
+        prompt: `Tap the sight word: “${target}”`,
+        options,
+        answer: target
+      });
+      return;
+    }
+
+    // 3) Story Builder: fill in the missing word
+    if (gameMode === 'story') {
+      const tpl = pick(STORY_TEMPLATES[theme]);
+      const options = shuffle([tpl.a, ...tpl.d]).map(w => w.toLowerCase());
+      setProblem({
+        prompt: tpl.t.replace('{__}', '____'),
+        options,
+        answer: tpl.a.toLowerCase()
+      });
+      return;
+    }
+  }, [difficulty, theme, gameMode]);
+
+  useEffect(() => {
+    generateProblem();
+  }, [generateProblem]);
+
+  useEffect(() => {
+    setCurrentTargetPlant(plantAssetsRef.current[theme][Math.floor(Math.random() * plantAssetsRef.current[theme].length)]);
+  }, [theme]);
+
+  const handleAnswer = (selected) => {
+    const isCorrect = selected === problem.answer;
+    
+    // Record Progress
+    const updatedStats = recordAnswer({ 
+      correct: isCorrect, 
+      difficulty, 
+      mode: gameMode 
+    });
+    setStats(updatedStats);
+
+    if (isCorrect) {
+      // Show success and auto-clear after a short delay
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+      setFeedback({ message: 'Correct!', type: 'success' });
+      feedbackTimeoutRef.current = setTimeout(() => setFeedback({ message: '', type: '' }), 1200);
+      setIsAnimating(true);
+      const newSeeds = seeds + 1;
+      
+      if (newSeeds >= 10) {
+        window.confetti({ 
+          particleCount: 200, 
+          spread: 90, 
+          origin: { y: 0.6 },
+          colors: level === 1 ? ['#FDE047'] : level === 2 ? ['#FB923C'] : level === 3 ? ['#4ADE80'] : level === 4 ? ['#F43F5E'] : level === 5 ? ['#3B82F6'] : ['#A855F7']
+        });
+        setSeeds(10);
+        setTimeout(() => {
+          if (pendingSessionEnd) {
+            setShowSessionEnd(true);
+            return;
+          }
+          setGarden(prev => [...prev, currentTargetPlant]);
+          const nextLevel = level < 9 ? level + 1 : 1;
+          setLevel(nextLevel);
+          setSeeds(0);
+          setCurrentTargetPlant(plantAssetsRef.current[theme][Math.floor(Math.random() * plantAssetsRef.current[theme].length)]);
+          setIsAnimating(false);
+          generateProblem();
+        }, 2000);
+      } else {
+        setSeeds(newSeeds);
+        setTimeout(() => { 
+          if (pendingSessionEnd) {
+            setShowSessionEnd(true);
+            return;
+          }
+          setIsAnimating(false); 
+          generateProblem(); 
+        }, 1000);
+      }
+    } else {
+      if (feedbackTimeoutRef.current) clearTimeout(feedbackTimeoutRef.current);
+      setFeedback({ message: 'Try again!', type: 'error' });
+      feedbackTimeoutRef.current = setTimeout(() => setFeedback({ message: '', type: '' }), 1000);
+    }
+  };
+
+  const handleHint = () => {
+    if (hintedOptionIndex !== null) return;
+    const incorrectIndices = problem.options
+      .map((option, index) => (option !== problem.answer ? index : null))
+      .filter((index) => index !== null);
+    const randomIndex = incorrectIndices[Math.floor(Math.random() * incorrectIndices.length)];
+    setHintedOptionIndex(randomIndex);
+  };
+
+  const confirmReset = () => {
+    setLevel(1);
+    setSeeds(0);
+    setGarden([]);
+    setShowResetModal(false);
+    generateProblem();
+  };
+
+  const tiltAngle = 15 - (seeds * 3);
+
+  return (
+    <div className={`h-[100dvh] ${currentTheme.bg} flex flex-col items-center p-3 font-sans ${currentTheme.textColor || 'text-stone-800'} overflow-hidden relative transition-colors duration-500`}>
+      {showSplash && (
+        <SplashScreen onFinish={() => { sessionStorage.setItem('reading_sprouts_seen_splash', '1'); setShowSplash(false); }} />
+      )}
+      
+      {/* Parent Access Button */}
+      <button 
+        onClick={() => { setShowParentModal(true); setIsParentAuthenticated(false); }}
+        className="fixed left-2 top-2 z-40 bg-white/40 backdrop-blur-sm p-2 rounded-full shadow-sm hover:bg-white/60 transition-all border border-white/20"
+      >
+        <span className="text-sm">⚙️</span>
+      </button>
+
+      {/* Side Difficulty Toggle */}
+      <div className="fixed left-2 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-40">
+        {['beginner', 'intermediate', 'advanced'].map((d) => (
+          <div key={d} className="relative group">
+            <button
+              disabled={parentSettings.locks.difficulty || !parentSettings.allowedDifficulties.includes(d)}
+              onClick={() => setDifficulty(d)}
+              className={`w-8 h-8 rounded-xl flex items-center justify-center text-[9px] font-black uppercase transition-all shadow-md border-b-2 
+              ${difficulty === d ? 'bg-green-500 text-white scale-105 border-green-700' : 'bg-white text-stone-400 border-stone-200'}
+              ${parentSettings.locks.difficulty ? 'opacity-50 cursor-not-allowed' : ''}
+              ${!parentSettings.allowedDifficulties.includes(d) ? 'hidden' : ''}`}
+            >
+              {d[0]}
+            </button>
+            {parentSettings.locks.difficulty && difficulty === d && (
+              <span className="absolute -right-2 -top-1 text-[8px] drop-shadow-sm">🔒</span>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* Style Panel */}
+      <div className="fixed right-2 top-2 z-40 flex flex-col items-center">
+        <div className="bg-stone-800 p-1.5 rounded-full shadow-xl flex flex-col gap-2 border-2 border-stone-700 relative">
+          {['garden', 'ocean', 'space'].map((t) => (
+            <button
+              key={t}
+              disabled={parentSettings.locks.theme || !parentSettings.allowedThemes.includes(t)}
+              onClick={() => setTheme(t)}
+              className={`w-5 h-5 rounded-full transition-all duration-300 relative
+              ${theme === t 
+                ? `${themeConfig[t].themeColor} shadow-[0_0_10px_rgba(255,255,255,0.4)] scale-110` 
+                : 'bg-stone-600 opacity-40'}
+              ${!parentSettings.allowedThemes.includes(t) ? 'hidden' : ''}`}
+            />
+          ))}
+          {parentSettings.locks.theme && (
+            <span className="absolute -left-1 -top-1 text-[8px] drop-shadow-sm">🔒</span>
+          )}
+        </div>
+        <span className={`text-[7px] font-black mt-1 uppercase tracking-widest ${theme === 'space' ? 'text-slate-400' : 'text-stone-400'}`}>Theme</span>
+      </div>
+      
+      {/* Header */}
+      <header className="w-full max-w-md flex flex-col items-center mt-1 shrink-0">
+        <div className="flex items-center gap-3 mb-1">
+          <div className={`w-16 h-16 ${currentTheme.headerBg} rounded-full flex items-center justify-center shadow-inner border-2 ${currentTheme.headerBorder} overflow-hidden`}>
+            <img src={currentTheme.mascot} alt="mascot" className="w-14 h-14 object-contain" />
+          </div>
+          <div>
+            <h1 className={`text-3xl font-normal ${currentTheme.accent} tracking-tight leading-none`} style={{ fontFamily: '"Bubblegum Sans", cursive' }}>Reading Sprouts</h1>
+            <div className={`mt-1 px-3 py-0.5 rounded-full text-[9px] font-black text-white uppercase inline-block
+              ${level <= 3 ? 'bg-yellow-500' : level <= 6 ? 'bg-orange-500' : 'bg-rose-600'}`}>
+              Level {level}
+            </div>
+          </div>
+        </div>
+
+        {/* Game Mode Switcher */}
+        <div className="flex bg-white/50 p-0.5 rounded-full border border-green-100 shadow-sm mb-1 relative">
+          {['phonics', 'sight', 'story'].map(m => (
+            <button 
+              key={m}
+              disabled={parentSettings.locks.gameMode || !parentSettings.allowedModes.includes(m)}
+              onClick={() => setGameMode(m)}
+              className={`px-2.5 py-0.5 rounded-full text-[8px] font-bold transition-all whitespace-nowrap 
+              ${gameMode === m ? 'bg-green-500 text-white shadow-sm' : 'text-green-700 hover:bg-green-100'}
+              ${!parentSettings.allowedModes.includes(m) ? 'hidden' : ''}`}
+            >
+              {m.charAt(0).toUpperCase() + m.slice(1)}
+            </button>
+          ))}
+          {parentSettings.locks.gameMode && (
+            <span className="absolute -right-1 -top-1 text-[8px]">🔒</span>
+          )}
+        </div>
+      </header>
+
+      {/* Main Game Area */}
+      <main className="flex-1 flex flex-col items-center justify-center w-full max-w-md gap-3 py-1 overflow-hidden">
+        
+        <div className={`bg-white rounded-2xl p-4 shadow-lg border-b-4 ${currentTheme.problemBorder} w-full text-center relative z-10 shrink-0 transition-transform ${feedback.type === 'error' ? 'animate-shake' : ''}`}>
+          <h2 className="text-4xl font-black text-stone-700 mb-1">
+            {problem.prompt}</h2>
+          <div className={`h-14 flex items-center justify-center transition-all duration-300 ${feedback.message ? 'opacity-100 scale-100' : 'opacity-0 scale-50'}`}>
+            <img src={feedback.type === 'success' ? '/assets/feedback-success.png' : '/assets/feedback-error.png'} alt={feedback.type} className="w-12 h-12 mr-3 drop-shadow-md" />
+            <p className={`text-xl font-black ${feedback.type === 'success' ? 'text-green-500' : 'text-orange-400'}`}>
+              {feedback.message}
+            </p>
+          </div>
+          
+          <button 
+            onClick={handleHint}
+            disabled={hintedOptionIndex !== null || isAnimating}
+            className={`mt-2 px-3 py-1 rounded-full text-[8px] font-black uppercase transition-all border-b-2 
+            ${hintedOptionIndex !== null 
+              ? 'bg-stone-100 text-stone-300 border-stone-200' 
+              : 'bg-yellow-100 text-yellow-700 border-yellow-300 hover:bg-yellow-200'}`}
+          >
+            {hintedOptionIndex !== null ? 'Used ✨' : 'Hint? 💡'}
+          </button>
+        </div>
+
+        <div className="flex gap-2.5 relative z-0 shrink-0 transition-all duration-500 ease-in-out">
+          {problem.options.map((option, index) => (
+            <button
+              key={index}
+              onClick={() => handleAnswer(option)}
+              disabled={isAnimating}
+              className={`
+                rounded-full text-xl font-bold text-white shadow-md
+                transform transition-all duration-500 ease-in-out active:scale-95
+                ${currentTheme.btnColors[index]}
+                ${hintedOptionIndex === index 
+                  ? 'opacity-0 scale-0 w-0 h-0 m-0 pointer-events-none p-0 border-0' 
+                  : 'min-w-[60px] h-16 px-3 py-2 flex items-center justify-center'}
+              `}
+            >
+              {hintedOptionIndex === index ? null : option}
+            </button>
+          ))}
+        </div>
+
+        <div className="w-full flex-1 flex items-center justify-center min-h-0">
+          {gameMode === 'phonics' && (
+            <div className="w-full relative h-40 flex flex-col items-center justify-center z-50">
+              <div className={`absolute bottom-0 w-12 h-12 bg-blue-100 border-2 border-blue-200 rounded-full shadow-inner overflow-hidden transition-all duration-500 ${isAnimating ? 'animate-water-wobble' : ''}`}>
+                <div className="absolute bottom-0 w-full h-1/2 bg-blue-300/30 blur-[1px]"></div>
+              </div>
+              <div className="absolute bottom-[35px] w-full max-w-[280px] h-4 bg-yellow-100 border-2 border-yellow-200 rounded-full transition-transform duration-700 ease-in-out origin-center flex items-center justify-between px-2 shadow-sm z-60" style={{ transform: `rotate(${tiltAngle}deg)` }}>
+                <div className="relative w-28 h-28 -mt-28 -ml-8 flex flex-wrap-reverse gap-0 items-end justify-center p-1">
+                  {[...Array(seeds)].map((_, i) => (
+                    <div key={i} className="w-1/3 flex justify-center items-end h-8">
+                      <img 
+                        src={currentTheme.balanceAsset} 
+                        alt="seed" 
+                        className={`w-10 h-10 relative z-70 ${i === seeds - 1 && isAnimating ? 'animate-fall-lightly' : 'animate-bounce-light'}`} 
+                        style={{ 
+                          animationDelay: i === seeds - 1 && isAnimating ? '0s' : `${i * 0.1}s`, 
+                          transform: `rotate(${-tiltAngle}deg)` 
+                        }} 
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="relative w-20 h-20 -mt-20 -mr-4 flex flex-col items-center justify-end pb-1">
+                  <img src={currentTargetPlant} alt="target" className="w-16 h-16 object-contain drop-shadow-md transform transition-transform duration-500" style={{ transform: `rotate(${-tiltAngle}deg)` }} />
+                </div>
+              </div>
+              <p className="absolute bottom-[-15px] text-[7px] font-black text-green-600 bg-white/80 px-2 py-0.5 rounded-full border border-green-100 uppercase tracking-widest">
+                {seeds} {currentTheme.seedName}{seeds !== 1 ? 's' : ''}
+              </p>
+            </div>
+          )}
+
+          {gameMode === 'sight' && (
+            <div className="relative flex flex-col items-center">
+              <div className="transition-all duration-1000 ease-out transform origin-bottom" style={{ transform: `scale(${0.8 + seeds * 0.12})`, filter: isAnimating ? 'brightness(1.1)' : 'none' }}>
+                <img src={currentTargetPlant} alt="growing plant" className="w-24 h-24 object-contain drop-shadow-lg" />
+              </div>
+              <div className="w-32 h-4 bg-stone-200 rounded-full mt-2 shadow-inner border-2 border-stone-300"></div>
+              <p className="text-stone-400 text-[8px] font-black mt-1 uppercase tracking-widest">Growing...</p>
+            </div>
+          )}
+
+          {gameMode === 'story' && (
+            <div className="relative w-full h-48 flex flex-col items-center justify-center">
+              <div className="relative z-0">
+                <div className={`transition-all duration-1000 ${seeds >= 10 ? 'scale-110' : 'scale-100'}`}>
+                  <div className="relative flex items-center justify-center">
+                    {seeds < 10 && <div className="absolute inset-0 flex items-center justify-center animate-pulse opacity-30"><div className="w-24 h-24 bg-rose-100 rounded-full blur-lg"></div></div>}
+                    <img 
+                      src={currentTargetPlant} 
+                      alt="pollinator plant" 
+                      style={{ 
+                        filter: `saturate(${0.2 + (seeds * 0.08)}) brightness(${0.8 + (seeds * 0.04)})`,
+                        transform: `scale(${0.75 + (seeds * 0.025)})`
+                      }}
+                      className={`w-24 h-24 object-contain drop-shadow-lg transition-all duration-1000`}
+                    />
+                  </div>
+                </div>
+                {isAnimating && <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"><div className="w-2 h-2 bg-yellow-300 rounded-full animate-ping"></div></div>}
+              </div>
+              <div className="absolute inset-0 pointer-events-none">
+                {[...Array(seeds)].map((_, i) => (
+                    <div key={i} className="absolute w-full h-full animate-bee-circle" style={{ animationDuration: `${3 + (i % 2)}s`, animationDelay: `${-i * 0.5}s`, zIndex: 60 }}>
+                    <div className="absolute left-1/2 top-0" style={{ transform: 'translateX(-50%)' }}>
+                      <img src={currentTheme.helper} alt="helper" className={`object-contain ${theme === 'space' ? 'w-10 h-10' : 'w-8 h-8'}`} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-4 bg-white/60 px-2 py-0.5 rounded-full border border-yellow-100 text-[7px] font-black text-yellow-700 uppercase tracking-widest">{seeds} Helping Hand{seeds !== 1 ? 's' : ''}</p>
+            </div>
+          )}
+        </div>
+      </main>
+
+      {/* PWA Install Banner */}
+      {showInstallBanner && (
+        <div className="w-full max-w-md bg-white/90 backdrop-blur-md rounded-2xl p-3 mb-2 border-2 border-green-200 shadow-lg flex items-center justify-between animate-bubble-pop z-[60]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center border-2 border-green-200 shrink-0">
+              <img src="/logo192.png" alt="logo" className="w-8 h-8 object-contain" />
+            </div>
+            <div>
+              <p className="text-[11px] font-black text-stone-700">Install Reading Sprouts</p>
+              <p className="text-[9px] text-stone-500 font-bold">
+                {deferredPrompt ? 'Add to home screen for offline play!' : 'Tap Share then "Add to Home Screen"'}
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            {deferredPrompt && (
+              <button 
+                onClick={handleInstallClick}
+                className="bg-green-500 text-white text-[10px] font-black px-3 py-1.5 rounded-lg shadow-sm border-b-2 border-green-600 active:scale-95"
+              >
+                Install
+              </button>
+            )}
+            <button 
+              onClick={() => setShowInstallBanner(false)}
+              className="text-stone-400 p-1 hover:bg-stone-50 rounded-lg transition-colors"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Shared Garden Visuals */}
+      <div className="w-full max-w-md bg-stone-100/90 rounded-t-2xl p-2.5 border-t-2 border-green-200 min-h-[80px] shrink-0 shadow-lg relative">
+        <p className="text-center text-stone-500 text-[8px] font-black uppercase tracking-widest mb-1.5">My Collection</p>
+        <div className="flex flex-wrap justify-center gap-2">
+          {garden.length === 0 && <p className="text-stone-400 text-[9px] italic font-medium text-center">Collection is empty!</p>}
+          {garden.map((plantImg, i) => (
+            <div key={i} className="w-9 h-9 flex items-center justify-center animate-bounce" style={{ animationDelay: `${i * 0.2}s` }}>
+              <img src={plantImg} alt="collection item" className="w-full h-full object-contain drop-shadow-sm" />
+            </div>
+          ))}
+        </div>
+        <button onClick={() => setShowResetModal(true)} className="absolute top-1 right-2 text-[7px] font-bold text-stone-300 hover:text-stone-500 uppercase tracking-tighter">Reset</button>
+      </div>
+
+      {/* Footer */}
+      <footer className="w-full max-w-md pb-2 pt-1.5 bg-white px-3 rounded-b-2xl shadow-xl border-x-2 border-b-2 border-stone-200 shrink-0">
+        <div className="flex justify-between items-end mb-0.5 px-1">
+          <span className="text-[8px] font-black text-stone-500 uppercase tracking-wider">Progress</span>
+          <span className="text-[8px] font-black text-stone-600">{seeds * 10}%</span>
+        </div>
+        <div className="w-full h-3.5 bg-stone-100 rounded-full p-0.5 border-2 border-stone-200 shadow-inner overflow-hidden">
+          <div className={`h-full rounded-full transition-all duration-700 ease-out shadow-sm bg-gradient-to-r ${currentTheme.progressGradient}`} style={{ width: `${seeds * 10}%` }}></div>
+        </div>
+      </footer>
+
+      {/* Reset Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 bg-stone-800/20 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-[30px] p-6 max-w-[240px] w-full shadow-2xl border-b-4 border-rose-100 animate-bubble-pop text-center">
+            <p className="text-xl font-black text-stone-700 mb-4 leading-tight">Go back to level 1?</p>
+            <div className="flex gap-3">
+              <button onClick={confirmReset} className="flex-1 bg-rose-400 text-white font-black py-2 rounded-xl shadow-md border-b-4 border-rose-600 active:scale-95">Yes!</button>
+              <button onClick={() => setShowResetModal(false)} className="flex-1 bg-stone-100 text-stone-500 font-black py-2 rounded-xl shadow-md border-b-4 border-stone-300 active:scale-95">No</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Parent Modal */}
+      {showParentModal && (
+        <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-md z-[100] flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-[40px] w-full max-w-md shadow-2xl overflow-hidden animate-bubble-pop flex flex-col max-h-[90vh]">
+            <header className="p-6 pb-2 flex justify-between items-center">
+              <div>
+                <h2 className="text-2xl font-black text-stone-800 tracking-tight">Parent Controls</h2>
+                {isParentAuthenticated && (
+                  <div className="flex gap-4 mt-2 items-center">
+                    <button onClick={() => setParentActiveTab('stats')} className={`text-[10px] font-black uppercase tracking-widest ${parentActiveTab === 'stats' ? 'text-green-600' : 'text-stone-400'}`}>Stats</button>
+                    <button onClick={() => setParentActiveTab('settings')} className={`text-[10px] font-black uppercase tracking-widest ${parentActiveTab === 'settings' ? 'text-green-600' : 'text-stone-400'}`}>Settings</button>
+                    {parentActiveTab === 'settings' && (
+                      <button onClick={() => setShowHelpModal(true)} className="ml-2 w-7 h-7 bg-stone-100 rounded-full flex items-center justify-center font-black text-stone-500">?</button>
+                    )}
+                  </div>
+                )}
+              </div>
+              <button onClick={() => setShowParentModal(false)} className="w-10 h-10 bg-stone-100 rounded-full flex items-center justify-center font-black text-stone-400">✕</button>
+            </header>
+
+            <div className="flex-1 p-6 pt-2 overflow-y-auto">
+              {!isParentAuthenticated ? (
+                <PINPad 
+                  correctPin={parentSettings.pin} 
+                  onAuthenticated={() => setIsParentAuthenticated(true)}
+                  onSetPin={(pin) => updateSettings({ ...parentSettings, pin })}
+                />
+              ) : (
+                <>
+                  {parentActiveTab === 'stats' ? (
+                    <ParentSummary stats={stats} />
+                  ) : (
+                    <ParentSettingsPanel 
+                      settings={parentSettings} 
+                      onUpdate={updateSettings}
+                    />
+                  )}
+                  <div className="mt-8 pt-4 border-t border-stone-100 flex justify-center">
+                    <button 
+                      onClick={() => {
+                        const newPin = prompt('Enter new 4-digit PIN:');
+                        if (newPin && newPin.length === 4) updateSettings({ ...parentSettings, pin: newPin });
+                      }}
+                      className="text-[9px] font-black text-stone-300 uppercase tracking-widest hover:text-stone-500"
+                    >
+                      Change PIN
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Help Modal */}
+      {showHelpModal && (
+        <HelpModal onClose={() => setShowHelpModal(false)} />
+      )}
+
+      {/* Session End Overlay */}
+      {showSessionEnd && (
+        <div className="fixed inset-0 bg-green-500 z-[200] flex flex-col items-center justify-center p-8 text-center animate-bubble-pop">
+          <div className={`w-40 h-40 ${currentTheme.headerBg} rounded-full flex items-center justify-center mb-6 shadow-2xl border-4 ${currentTheme.headerBorder}`}>
+            <img src={currentTheme.mascot} alt="mascot" className="w-32 h-32 object-contain" />
+          </div>
+          <h2 className="text-4xl font-black text-white mb-4 leading-tight" style={{ fontFamily: '"Bubblegum Sans", cursive' }}>Great job!<br/>Time for a break 🌱</h2>
+          <p className="text-green-100 font-bold mb-8 opacity-80">You've reached your daily reading goal. See you next time!</p>
+          <button 
+            onClick={() => { recordSessionEnd(elapsedSeconds); setShowSessionEnd(false); setPendingSessionEnd(false); }}
+            className="bg-white text-green-600 font-black px-8 py-3 rounded-2xl shadow-xl border-b-4 border-green-100 active:scale-95 transition-all"
+          >
+            I'm Done
+          </button>
+        </div>
+      )}
+
+      <style>{`
+        @keyframes water-wobble { 0%, 100% { transform: scale(1, 1) translateY(0); } 25% { transform: scale(1.1, 0.9) translateY(1px); } 50% { transform: scale(0.9, 1.1) translateY(-1px); } 75% { transform: scale(1.05, 0.95) translateY(0.5px); } }
+        .animate-water-wobble { animation: water-wobble 0.8s ease-in-out; }
+        @keyframes bee-circle { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .animate-bee-circle { animation: bee-circle linear infinite; }
+        @keyframes bubble-pop { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+        .animate-bubble-pop { animation: bubble-pop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes shake {
+          0%, 100% { transform: translateX(0); }
+          20% { transform: translateX(-8px); }
+          40% { transform: translateX(8px); }
+          60% { transform: translateX(-5px); }
+          80% { transform: translateX(5px); }
+        }
+        .animate-shake { animation: shake 0.5s ease-in-out; }
+
+        @keyframes fall-lightly {
+          0% { transform: translateY(-80px); opacity: 0; }
+          60% { transform: translateY(3px); opacity: 1; }
+          80% { transform: translateY(-1px); }
+          100% { transform: translateY(0); }
+        }
+        .animate-fall-lightly { animation: fall-lightly 0.8s ease-out forwards; }
+        
+        @keyframes bounce-light {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-2px); }
+        }
+        .animate-bounce-light { animation: bounce-light 2s infinite ease-in-out; }
+      `}</style>
+    </div>
+  );
+}
+
+export default App;
