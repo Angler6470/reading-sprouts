@@ -203,6 +203,7 @@ function App() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [currentTargetPlant, setCurrentTargetPlant] = useState('/assets/reading/bud-garden-reading.svg');
   const [showResetModal, setShowResetModal] = useState(false);
+  const recentProblemKeysRef = useRef([]);
   const [showSplash, setShowSplash] = useState(() => sessionStorage.getItem('reading_sprouts_seen_splash') !== '1');
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [hintedOptionIndex, setHintedOptionIndex] = useState(null);
@@ -418,52 +419,73 @@ function App() {
     const diffKey = difficultyKey(difficulty);
     const themeWords = THEME_WORDS[theme][diffKey];
 
-    // 1) Phonics: choose the word that starts with the shown letter
-    if (gameMode === 'phonics') {
-      const correctWord = pick(themeWords);
-      const letter = correctWord[0].toUpperCase();
+    const recent = recentProblemKeysRef.current;
+    const recentSet = new Set(recent);
 
-      // distractors: words that do NOT start with the same letter
-      const distractPool = themeWords.filter(w => w[0].toUpperCase() !== letter);
-      const d1 = pick(distractPool.length ? distractPool : THEME_WORDS[theme]['beginner']);
-      const d2 = pick(distractPool.length ? distractPool : THEME_WORDS[theme]['intermediate']);
+    // Build one candidate problem (keeps logic readable)
+    const buildProblem = () => {
+      // 1) Phonics: choose the word that starts with the shown letter
+      if (gameMode === 'phonics') {
+        const correctWord = pick(themeWords);
+        const letter = correctWord[0].toUpperCase();
 
-      const options = shuffle([correctWord, d1, d2]).map(w => w.toLowerCase());
-      setProblem({
-        prompt: `Which word starts with “${letter}”?`,
-        options,
-        answer: correctWord.toLowerCase()
-      });
-      return;
+        // distractors: words that do NOT start with the same letter
+        const distractPool = themeWords.filter(w => w[0].toUpperCase() !== letter);
+        const d1 = pick(distractPool.length ? distractPool : THEME_WORDS[theme]['beginner']);
+        const d2 = pick(distractPool.length ? distractPool : THEME_WORDS[theme]['intermediate']);
+
+        const options = shuffle([correctWord, d1, d2]).map(w => w.toLowerCase());
+        return {
+          prompt: `Which word starts with “${letter}”?`,
+          options,
+          answer: correctWord.toLowerCase()
+        };
+      }
+
+      // 2) Sight Words: tap the target sight word
+      if (gameMode === 'sight') {
+        const target = pick(SIGHT_WORDS[diffKey]).toLowerCase();
+        const pool = shuffle([...SIGHT_WORDS[diffKey], ...SIGHT_WORDS['beginner'], ...SIGHT_WORDS['intermediate']])
+          .map(w => w.toLowerCase())
+          .filter(w => w !== target);
+
+        const options = shuffle([target, pool[0], pool[1]]).slice(0, 3);
+        return {
+          prompt: `Tap the sight word: “${target}”`,
+          options,
+          answer: target
+        };
+      }
+
+      // 3) Story Builder: fill in the missing word
+      if (gameMode === 'story') {
+        const tpl = pick(STORY_TEMPLATES[theme]);
+        const options = shuffle([tpl.a, ...tpl.d]).map(w => w.toLowerCase());
+        return {
+          prompt: tpl.t.replace('{__}', '____'),
+          options,
+          answer: tpl.a.toLowerCase()
+        };
+      }
+
+      return { prompt: '', options: [], answer: '' };
+    };
+
+    // Avoid immediate repeats (helps the app feel fair + varied)
+    let candidate = buildProblem();
+    let key = `${gameMode}|${difficulty}|${theme}|${candidate.prompt}|${candidate.answer}`;
+
+    for (let tries = 0; tries < 25 && recentSet.has(key); tries++) {
+      candidate = buildProblem();
+      key = `${gameMode}|${difficulty}|${theme}|${candidate.prompt}|${candidate.answer}`;
     }
 
-    // 2) Sight Words: tap the target sight word
-    if (gameMode === 'sight') {
-      const target = pick(SIGHT_WORDS[diffKey]).toLowerCase();
-      const pool = shuffle([...SIGHT_WORDS[diffKey], ...SIGHT_WORDS['beginner'], ...SIGHT_WORDS['intermediate']])
-        .map(w => w.toLowerCase())
-        .filter(w => w !== target);
+    // Record key (keep last 12)
+    recent.push(key);
+    while (recent.length > 12) recent.shift();
+    recentProblemKeysRef.current = recent;
 
-      const options = shuffle([target, pool[0], pool[1]]).slice(0, 3);
-      setProblem({
-        prompt: `Tap the sight word: “${target}”`,
-        options,
-        answer: target
-      });
-      return;
-    }
-
-    // 3) Story Builder: fill in the missing word
-    if (gameMode === 'story') {
-      const tpl = pick(STORY_TEMPLATES[theme]);
-      const options = shuffle([tpl.a, ...tpl.d]).map(w => w.toLowerCase());
-      setProblem({
-        prompt: tpl.t.replace('{__}', '____'),
-        options,
-        answer: tpl.a.toLowerCase()
-      });
-      return;
-    }
+    setProblem(candidate);
   }, [difficulty, theme, gameMode]);
 
   useEffect(() => {
@@ -668,7 +690,7 @@ function App() {
           </button>
         </div>
 
-        <div className="flex gap-2.5 relative z-0 shrink-0 transition-all duration-500 ease-in-out">
+        <div className="flex flex-wrap justify-center gap-2.5 relative z-30 shrink-0 transition-all duration-500 ease-in-out">
           {problem.options.map((option, index) => (
             <button
               key={index}
@@ -690,18 +712,18 @@ function App() {
 
         <div className="w-full flex-1 flex items-center justify-center min-h-0">
           {gameMode === 'phonics' && (
-            <div className="w-full relative h-40 flex flex-col items-center justify-center z-50">
+            <div className="w-full relative h-56 flex flex-col items-center justify-end z-10 overflow-hidden pt-6">
               <div className={`absolute bottom-0 w-12 h-12 bg-blue-100 border-2 border-blue-200 rounded-full shadow-inner overflow-hidden transition-all duration-500 ${isAnimating ? 'animate-water-wobble' : ''}`}>
                 <div className="absolute bottom-0 w-full h-1/2 bg-blue-300/30 blur-[1px]"></div>
               </div>
-              <div className="absolute bottom-[35px] w-full max-w-[280px] h-4 bg-yellow-100 border-2 border-yellow-200 rounded-full transition-transform duration-700 ease-in-out origin-center flex items-center justify-between px-2 shadow-sm z-60" style={{ transform: `rotate(${tiltAngle}deg)` }}>
+              <div className="absolute bottom-[35px] w-full max-w-[280px] h-4 bg-yellow-100 border-2 border-yellow-200 rounded-full transition-transform duration-700 ease-in-out origin-center flex items-center justify-between px-2 shadow-sm z-[60]" style={{ transform: `rotate(${tiltAngle}deg)` }}>
                 <div className="relative w-28 h-28 -mt-28 -ml-8 flex flex-wrap-reverse gap-0 items-end justify-center p-1">
                   {[...Array(seeds)].map((_, i) => (
                     <div key={i} className="w-1/3 flex justify-center items-end h-8">
                       <img 
                         src={currentTheme.balanceAsset} 
                         alt="seed" 
-                        className={`w-10 h-10 relative z-70 ${i === seeds - 1 && isAnimating ? 'animate-fall-lightly' : 'animate-bounce-light'}`} 
+                        className={`w-10 h-10 relative z-20 ${i === seeds - 1 && isAnimating ? 'animate-fall-lightly' : 'animate-bounce-light'}`} 
                         style={{ 
                           animationDelay: i === seeds - 1 && isAnimating ? '0s' : `${i * 0.1}s`, 
                           transform: `rotate(${-tiltAngle}deg)` 
@@ -798,7 +820,7 @@ function App() {
       )}
 
       {/* Shared Garden Visuals */}
-      <div className="w-full max-w-md bg-stone-100/90 rounded-t-2xl p-2.5 border-t-2 border-green-200 min-h-[80px] shrink-0 shadow-lg relative">
+      <div className="w-full max-w-md bg-stone-100/90 rounded-t-2xl p-2.5 border-t-2 border-green-200 min-h-[80px] shrink-0 shadow-lg relative z-20">
         <p className="text-center text-stone-500 text-[8px] font-black uppercase tracking-widest mb-1.5">My Collection</p>
         <div className="flex flex-wrap justify-center gap-2">
           {garden.length === 0 && <p className="text-stone-400 text-[9px] italic font-medium text-center">Collection is empty!</p>}
