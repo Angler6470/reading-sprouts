@@ -370,26 +370,26 @@ function App() {
   // --- Reading content banks (kept lightweight + theme-aware) ---
   const THEME_WORDS = {
     garden: {
-      beginner: ['sun', 'bug', 'seed', 'leaf', 'dirt', 'root', 'tree', 'frog'],
-      intermediate: ['garden', 'flower', 'rainbow', 'sprout', 'pumpkin', 'butterfly'],
-      advanced: ['photosynthesis', 'pollination', 'hibernate', 'camouflage', 'germinate']
+      beginner: ['bud', 'leaf', 'seed', 'bee', 'root', 'pot', 'soil', 'sprout'],
+      intermediate: ['garden', 'flower', 'butterfly', 'watering', 'pumpkin', 'petal'],
+      advanced: ['photosynthesis', 'pollination', 'germinate', 'transplant', 'compost']
     },
     ocean: {
-      beginner: ['fish', 'wave', 'sand', 'reef', 'crab', 'shark', 'boat', 'seal'],
-      intermediate: ['octopus', 'seahorse', 'turtle', 'dolphin', 'current', 'coral'],
+      beginner: ['fish', 'wave', 'sand', 'reef', 'crab', 'seal', 'oar', 'shell'],
+      intermediate: ['octopus', 'seahorse', 'turtle', 'dolphin', 'coral', 'current'],
       advanced: ['bioluminescent', 'ecosystem', 'plankton', 'migration', 'pressure']
     },
     space: {
-      beginner: ['star', 'moon', 'rock', 'sun', 'ship', 'mars', 'ring', 'alien'],
-      intermediate: ['rocket', 'planet', 'galaxy', 'comet', 'asteroid', 'orbit'],
+      beginner: ['star', 'moon', 'rock', 'ship', 'mars', 'ring', 'orbit', 'cosy'],
+      intermediate: ['rocket', 'planet', 'galaxy', 'comet', 'asteroid', 'orbiting'],
       advanced: ['constellation', 'atmosphere', 'gravity', 'telescope', 'astronaut']
     }
   };
 
   const SIGHT_WORDS = {
     beginner: ['the', 'and', 'to', 'a', 'I', 'you', 'we', 'see'],
-    intermediate: ['said', 'come', 'here', 'what', 'when', 'they', 'were', 'because'],
-    advanced: ['through', 'thought', 'enough', 'people', 'different', 'another', 'answer', 'between']
+    intermediate: ['said', 'come', 'here', 'what', 'when', 'they', 'were', 'from'],
+    advanced: ['through', 'thought', 'enough', 'people', 'different', 'another', 'between', 'because']
   };
 
   const STORY_TEMPLATES = {
@@ -426,15 +426,25 @@ function App() {
     const buildProblem = () => {
       // 1) Phonics: choose the word that starts with the shown letter
       if (gameMode === 'phonics') {
-        const correctWord = pick(themeWords);
-        const letter = correctWord[0].toUpperCase();
+        // Pick a correct word ensuring we have distinct distractor initials
+        let correctWord = pick(themeWords);
+        let letter = correctWord[0].toUpperCase();
 
-        // distractors: words that do NOT start with the same letter
-        const distractPool = themeWords.filter(w => w[0].toUpperCase() !== letter);
-        const d1 = pick(distractPool.length ? distractPool : THEME_WORDS[theme]['beginner']);
-        const d2 = pick(distractPool.length ? distractPool : THEME_WORDS[theme]['intermediate']);
+        // Build distractor pool from same difficulty first, then fall back
+        const poolSame = THEME_WORDS[theme][diffKey].filter(w => w !== correctWord && w[0].toUpperCase() !== letter);
+        const poolOther = themeWords.filter(w => w !== correctWord && w[0].toUpperCase() !== letter);
+        const distractPool = poolSame.length ? poolSame : poolOther;
 
-        const options = shuffle([correctWord, d1, d2]).map(w => w.toLowerCase());
+        // Choose two unique distractors
+        const dCandidates = shuffle(distractPool).slice(0, 2);
+        // If not enough unique distractors, fill with beginner words from the theme (distinct initials)
+        while (dCandidates.length < 2) {
+          const fallback = pick(THEME_WORDS[theme]['beginner'].filter(w => w !== correctWord && w[0].toUpperCase() !== letter));
+          if (!fallback || dCandidates.includes(fallback)) break;
+          dCandidates.push(fallback);
+        }
+
+        const options = shuffle([correctWord, ...dCandidates]).map(w => w.toLowerCase());
         return {
           prompt: `Which word starts with “${letter}”?`,
           options,
@@ -444,12 +454,14 @@ function App() {
 
       // 2) Sight Words: tap the target sight word
       if (gameMode === 'sight') {
+        // Target is picked from the selected difficulty; distractors come from same level first
         const target = pick(SIGHT_WORDS[diffKey]).toLowerCase();
-        const pool = shuffle([...SIGHT_WORDS[diffKey], ...SIGHT_WORDS['beginner'], ...SIGHT_WORDS['intermediate']])
-          .map(w => w.toLowerCase())
-          .filter(w => w !== target);
+        const samePool = SIGHT_WORDS[diffKey].filter(w => w.toLowerCase() !== target).map(w => w.toLowerCase());
+        const neighbourPool = (diffKey === 'advanced') ? SIGHT_WORDS['intermediate'] : SIGHT_WORDS['beginner'];
+        const pool = shuffle([...samePool, ...neighbourPool.map(w => w.toLowerCase())]).filter(w => w !== target);
 
-        const options = shuffle([target, pool[0], pool[1]]).slice(0, 3);
+        const candidates = [...new Set(pool)];
+        const options = shuffle([target, candidates[0] || pick(SIGHT_WORDS['beginner']), candidates[1] || pick(SIGHT_WORDS['beginner'])].map(w => w.toLowerCase())).slice(0, 3);
         return {
           prompt: `Tap the sight word: “${target}”`,
           options,
@@ -529,7 +541,7 @@ function App() {
             return;
           }
           setGarden(prev => [...prev, currentTargetPlant]);
-          const nextLevel = level < 9 ? level + 1 : 1;
+          const nextLevel = Math.min(level + 1, 9);
           setLevel(nextLevel);
           setSeeds(0);
           setCurrentTargetPlant(plantAssetsRef.current[theme][Math.floor(Math.random() * plantAssetsRef.current[theme].length)]);
@@ -588,7 +600,7 @@ function App() {
       </button>
 
       {/* Side Difficulty Toggle */}
-      <div className="fixed left-2 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-40">
+      <div className="hidden md:flex fixed left-2 top-1/2 -translate-y-1/2 flex flex-col gap-1.5 z-40">
         {['beginner', 'intermediate', 'advanced'].map((d) => (
           <div key={d} className="relative group">
             <button
@@ -609,7 +621,7 @@ function App() {
       </div>
 
       {/* Style Panel */}
-      <div className="fixed right-2 top-2 z-40 flex flex-col items-center">
+      <div className="hidden sm:flex fixed right-2 top-2 z-40 flex flex-col items-center">
         <div className="bg-stone-800 p-1.5 rounded-full shadow-xl flex flex-col gap-2 border-2 border-stone-700 relative">
           {['garden', 'ocean', 'space'].map((t) => (
             <button
@@ -647,6 +659,19 @@ function App() {
 
         {/* Game Mode Switcher */}
         <div className="flex bg-white/50 p-0.5 rounded-full border border-green-100 shadow-sm mb-1 relative">
+          {/* Mobile difficulty selector */}
+          <div className="flex md:hidden gap-2 mt-2">
+            {['beginner', 'intermediate', 'advanced'].map((d) => (
+              <button
+                key={`mobile-${d}`}
+                disabled={parentSettings.locks.difficulty || !parentSettings.allowedDifficulties.includes(d)}
+                onClick={() => setDifficulty(d)}
+                className={`px-2 py-1 rounded-full text-[9px] font-black uppercase transition-all border-b-2 ${difficulty === d ? 'bg-green-500 text-white' : 'bg-white text-stone-400'}`}
+              >
+                {d[0].toUpperCase()}
+              </button>
+            ))}
+          </div>
           {['phonics', 'sight', 'story'].map(m => (
             <button 
               key={m}
@@ -690,7 +715,7 @@ function App() {
           </button>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-2.5 relative z-30 shrink-0 transition-all duration-500 ease-in-out">
+        <div data-testid="options-container" className="flex flex-wrap justify-center gap-2.5 relative z-30 shrink-0 transition-all duration-500 ease-in-out">
           {problem.options.map((option, index) => (
             <button
               key={index}
