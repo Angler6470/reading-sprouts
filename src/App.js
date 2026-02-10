@@ -222,16 +222,16 @@ function App() {
   // Customization Assets
   const plantAssets = {
     garden: [
-      '/assets/reading/bud-garden-reading.svg', '/assets/garden/plant-2.png', '/assets/garden/plant-3.png', '/assets/garden/plant-4.png',
-      '/assets/garden/plant-5.png', '/assets/garden/plant-6.png', '/assets/garden/plant-7.png', '/assets/garden/plant-8.png'
+      '/assets/reading/bud-garden-reading.svg', '/assets/garden/collectible-1.png', '/assets/garden/collectible-2.png', '/assets/garden/collectible-3.png',
+      '/assets/garden/collectible-4.png', '/assets/garden/collectible-5.png', '/assets/garden/collectible-6.png', '/assets/garden/collectible-7.png'
     ],
     ocean: [
-      '/assets/reading/bud-ocean-reading.svg', '/assets/ocean/ocean-2.png', '/assets/ocean/ocean-3.png', '/assets/ocean/ocean-4.png',
-      '/assets/ocean/ocean-5.png', '/assets/ocean/ocean-6.png', '/assets/ocean/ocean-7.png', '/assets/ocean/ocean-8.png'
+      '/assets/reading/bud-ocean-reading.svg', '/assets/ocean/collectible-1.png', '/assets/ocean/collectible-2.png', '/assets/ocean/collectible-3.png',
+      '/assets/ocean/collectible-4.png', '/assets/ocean/collectible-5.png', '/assets/ocean/collectible-6.png', '/assets/ocean/collectible-7.png'
     ],
     space: [
-      '/assets/reading/bud-space-reading.svg', '/assets/space/astro-2.png', '/assets/space/astro-3.png', '/assets/space/astro-4.png',
-      '/assets/space/astro-5.png', '/assets/space/astro-6.png', '/assets/space/astro-7.png', '/assets/space/astro-8.png'
+      '/assets/reading/bud-space-reading.svg', '/assets/space/collectible-1.png', '/assets/space/collectible-2.png', '/assets/space/collectible-3.png',
+      '/assets/space/collectible-4.png', '/assets/space/collectible-5.png', '/assets/space/collectible-6.png', '/assets/space/collectible-7.png'
     ]
   };
 
