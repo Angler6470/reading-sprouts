@@ -267,16 +267,16 @@ function App() {
   // Customization Assets
   const plantAssets = {
     garden: [
-      '/assets/reading/bud-garden-reading.svg', '/assets/garden/collectible-1.png', '/assets/garden/collectible-2.png', '/assets/garden/collectible-3.png',
-      '/assets/garden/collectible-4.png', '/assets/garden/collectible-5.png', '/assets/garden/collectible-6.png', '/assets/garden/collectible-7.png'
+      '/assets/garden/collectible-1.png', '/assets/garden/collectible-2.png', '/assets/garden/collectible-3.png', '/assets/garden/collectible-4.png',
+      '/assets/garden/collectible-5.png', '/assets/garden/collectible-6.png', '/assets/garden/collectible-7.png', '/assets/garden/collectible-8.png'
     ],
     ocean: [
-      '/assets/reading/bud-ocean-reading.svg', '/assets/ocean/collectible-1.png', '/assets/ocean/collectible-2.png', '/assets/ocean/collectible-3.png',
-      '/assets/ocean/collectible-4.png', '/assets/ocean/collectible-5.png', '/assets/ocean/collectible-6.png', '/assets/ocean/collectible-7.png'
+      '/assets/ocean/collectible-1.png', '/assets/ocean/collectible-2.png', '/assets/ocean/collectible-3.png', '/assets/ocean/collectible-4.png',
+      '/assets/ocean/collectible-5.png', '/assets/ocean/collectible-6.png', '/assets/ocean/collectible-7.png', '/assets/ocean/collectible-8.png'
     ],
     space: [
-      '/assets/reading/bud-space-reading.svg', '/assets/space/collectible-1.png', '/assets/space/collectible-2.png', '/assets/space/collectible-3.png',
-      '/assets/space/collectible-4.png', '/assets/space/collectible-5.png', '/assets/space/collectible-6.png', '/assets/space/collectible-7.png'
+      '/assets/space/collectible-1.png', '/assets/space/collectible-2.png', '/assets/space/collectible-3.png', '/assets/space/collectible-4.png',
+      '/assets/space/collectible-5.png', '/assets/space/collectible-6.png', '/assets/space/collectible-7.png', '/assets/space/collectible-8.png'
     ]
   };
 
@@ -291,11 +291,11 @@ function App() {
       problemBorder: 'border-green-200',
       btnColors: ['bg-rose-400 border-rose-600', 'bg-sky-400 border-sky-600', 'bg-amber-400 border-amber-600'],
       progressGradient: 'from-green-400 to-yellow-400',
-      mascot: '/assets/reading/mascot-garden-reading.svg',
+      mascot: '/assets/mascot-garden.png',
       helper: '/assets/helper-bee.png',
       themeColor: 'bg-green-400',
       seedName: 'Sprout',
-      bud: '/assets/reading/bud-garden-reading.svg',
+      bud: '/assets/garden/collectible-1.png',
       balanceAsset: '/assets/balance-seed.png'
     },
     ocean: {
@@ -306,11 +306,11 @@ function App() {
       problemBorder: 'border-cyan-200',
       btnColors: ['bg-teal-400 border-teal-600', 'bg-blue-400 border-blue-600', 'bg-indigo-400 border-indigo-600'],
       progressGradient: 'from-cyan-400 to-blue-400',
-      mascot: '/assets/reading/mascot-ocean-reading.svg',
+      mascot: '/assets/mascot-ocean.png',
       helper: '/assets/helper-fish.png',
       themeColor: 'bg-blue-400',
       seedName: 'Whale',
-      bud: '/assets/reading/bud-ocean-reading.svg',
+      bud: '/assets/ocean/collectible-1.png',
       balanceAsset: '/assets/balance-whale.png'
     },
     space: {
@@ -322,11 +322,11 @@ function App() {
       btnColors: ['bg-fuchsia-500 border-fuchsia-700', 'bg-violet-500 border-violet-700', 'bg-pink-500 border-pink-700'],
       progressGradient: 'from-purple-500 to-pink-500',
       textColor: 'text-slate-200',
-      mascot: '/assets/reading/mascot-space-reading.svg',
+      mascot: '/assets/mascot-space.png',
       helper: '/assets/ocean-stars.png',
       themeColor: 'bg-purple-600',
       seedName: 'Asteroid',
-      bud: '/assets/reading/bud-space-reading.svg',
+      bud: '/assets/space/collectible-1.png',
       balanceAsset: '/assets/balance-asteroid.png'
     }
   };
