@@ -6,6 +6,51 @@ import SplashScreen from './components/SplashScreen';
 import HelpModal from './components/HelpModal';
 
 /**
+ * Module-level constants for reading content
+ */
+const THEME_WORDS = {
+  garden: {
+    beginner: ['bud', 'leaf', 'seed', 'bee', 'root', 'pot', 'soil', 'sprout'],
+    intermediate: ['garden', 'flower', 'butterfly', 'watering', 'pumpkin', 'petal'],
+    advanced: ['photosynthesis', 'pollination', 'germinate', 'transplant', 'compost']
+  },
+  ocean: {
+    beginner: ['fish', 'wave', 'sand', 'reef', 'crab', 'seal', 'oar', 'shell'],
+    intermediate: ['octopus', 'seahorse', 'turtle', 'dolphin', 'coral', 'current'],
+    advanced: ['bioluminescent', 'ecosystem', 'plankton', 'migration', 'pressure']
+  },
+  space: {
+    beginner: ['star', 'moon', 'rock', 'ship', 'mars', 'ring', 'orbit', 'cosy'],
+    intermediate: ['rocket', 'planet', 'galaxy', 'comet', 'asteroid', 'orbiting'],
+    advanced: ['constellation', 'atmosphere', 'gravity', 'telescope', 'astronaut']
+  }
+};
+
+const SIGHT_WORDS = {
+  beginner: ['the', 'and', 'to', 'a', 'I', 'you', 'we', 'see'],
+  intermediate: ['said', 'come', 'here', 'what', 'when', 'they', 'were', 'from'],
+  advanced: ['through', 'thought', 'enough', 'people', 'different', 'another', 'between', 'because']
+};
+
+const STORY_TEMPLATES = {
+  garden: [
+    { t: 'The {__} grew from a tiny seed.', a: 'plant', d: ['rock', 'cloud'] },
+    { t: 'A {__} buzzed by the flowers.', a: 'bee', d: ['train', 'moon'] },
+    { t: 'We water the {__} to help them grow.', a: 'plants', d: ['stars', 'shoes'] }
+  ],
+  ocean: [
+    { t: 'The {__} swims near the coral reef.', a: 'fish', d: ['kite', 'leaf'] },
+    { t: 'A {__} pinches with its claws.', a: 'crab', d: ['book', 'star'] },
+    { t: 'Big waves splash the {__}.', a: 'shore', d: ['desk', 'garden'] }
+  ],
+  space: [
+    { t: 'The rocket blasts into {__}.', a: 'space', d: ['sand', 'puddle'] },
+    { t: 'The {__} shines at night.', a: 'moon', d: ['carrot', 'fish'] },
+    { t: 'A {__} orbits a planet.', a: 'satellite', d: ['mushroom', 'boot'] }
+  ]
+};
+
+/**
  * Parent Panel Components
  */
 
@@ -366,50 +411,6 @@ function App() {
   };
 
   // Generate a new problem based on level and difficulty
-
-  // --- Reading content banks (kept lightweight + theme-aware) ---
-  const THEME_WORDS = {
-    garden: {
-      beginner: ['bud', 'leaf', 'seed', 'bee', 'root', 'pot', 'soil', 'sprout'],
-      intermediate: ['garden', 'flower', 'butterfly', 'watering', 'pumpkin', 'petal'],
-      advanced: ['photosynthesis', 'pollination', 'germinate', 'transplant', 'compost']
-    },
-    ocean: {
-      beginner: ['fish', 'wave', 'sand', 'reef', 'crab', 'seal', 'oar', 'shell'],
-      intermediate: ['octopus', 'seahorse', 'turtle', 'dolphin', 'coral', 'current'],
-      advanced: ['bioluminescent', 'ecosystem', 'plankton', 'migration', 'pressure']
-    },
-    space: {
-      beginner: ['star', 'moon', 'rock', 'ship', 'mars', 'ring', 'orbit', 'cosy'],
-      intermediate: ['rocket', 'planet', 'galaxy', 'comet', 'asteroid', 'orbiting'],
-      advanced: ['constellation', 'atmosphere', 'gravity', 'telescope', 'astronaut']
-    }
-  };
-
-  const SIGHT_WORDS = {
-    beginner: ['the', 'and', 'to', 'a', 'I', 'you', 'we', 'see'],
-    intermediate: ['said', 'come', 'here', 'what', 'when', 'they', 'were', 'from'],
-    advanced: ['through', 'thought', 'enough', 'people', 'different', 'another', 'between', 'because']
-  };
-
-  const STORY_TEMPLATES = {
-    garden: [
-      { t: 'The {__} grew from a tiny seed.', a: 'plant', d: ['rock', 'cloud'] },
-      { t: 'A {__} buzzed by the flowers.', a: 'bee', d: ['train', 'moon'] },
-      { t: 'We water the {__} to help them grow.', a: 'plants', d: ['stars', 'shoes'] }
-    ],
-    ocean: [
-      { t: 'The {__} swims near the coral reef.', a: 'fish', d: ['kite', 'leaf'] },
-      { t: 'A {__} pinches with its claws.', a: 'crab', d: ['book', 'star'] },
-      { t: 'Big waves splash the {__}.', a: 'shore', d: ['desk', 'garden'] }
-    ],
-    space: [
-      { t: 'The rocket blasts into {__}.', a: 'space', d: ['sand', 'puddle'] },
-      { t: 'The {__} shines at night.', a: 'moon', d: ['carrot', 'fish'] },
-      { t: 'A {__} orbits a planet.', a: 'satellite', d: ['mushroom', 'boot'] }
-    ]
-  };
-
   const difficultyKey = (d) => (d === 'beginner' ? 'beginner' : d === 'advanced' ? 'advanced' : 'intermediate');
 
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
