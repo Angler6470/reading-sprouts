@@ -64,19 +64,19 @@ export const pack = {
 
     stories: {
       garden: [
-        { q: 'The {__} grew from a tiny seed.', a: 'plant', d: ['rock', 'cloud'] },
-        { q: 'A {__} buzzed by the flowers.', a: 'bee', d: ['train', 'moon'] },
-        { q: 'We water the {__} to help them grow.', a: 'plants', d: ['stars', 'shoes'] }
+        { t: 'The {__} grew from a tiny seed.', a: 'plant', d: ['rock', 'cloud'] },
+        { t: 'A {__} buzzed by the flowers.', a: 'bee', d: ['train', 'moon'] },
+        { t: 'We water the {__} to help them grow.', a: 'plants', d: ['stars', 'shoes'] }
       ],
       ocean: [
-        { q: 'The {__} swims near the coral reef.', a: 'fish', d: ['kite', 'leaf'] },
-        { q: 'A {{__} pinches with its claws.', a: 'crab', d: ['book', 'star'] },
-        { q: 'Big waves splash the {__}.', a: 'shore', d: ['desk', 'garden'] }
+        { t: 'The {__} swims near the coral reef.', a: 'fish', d: ['kite', 'leaf'] },
+        { t: 'A {__} pinches with its claws.', a: 'crab', d: ['book', 'star'] },
+        { t: 'Big waves splash the {__}.', a: 'shore', d: ['desk', 'garden'] }
       ],
       space: [
-        { q: 'The rocket blasts into {__}.', a: 'space', d: ['sand', 'puddle'] },
-        { q: 'The {__} shines at night.', a: 'moon', d: ['carrot', 'fish'] },
-        { q: 'A {__} orbits a planet.', a: 'satellite', d: ['mushroom', 'boot'] }
+        { t: 'The rocket blasts into {__}.', a: 'space', d: ['sand', 'puddle'] },
+        { t: 'The {__} shines at night.', a: 'moon', d: ['carrot', 'fish'] },
+        { t: 'A {__} orbits a planet.', a: 'satellite', d: ['mushroom', 'boot'] }
       ]
     }
   }
