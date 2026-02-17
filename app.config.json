@@ -1,0 +1,7 @@
+{
+  "appId": "reading-sprouts",
+  "displayName": "Reading Sprouts",
+  "assetsBasePath": "/assets/reading-sprouts",
+  "defaultTheme": "garden",
+  "enabledGameModes": ["phonics", "sight", "story"]
+}
