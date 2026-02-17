@@ -4,6 +4,7 @@ import { loadParentSettings, saveParentSettings } from './lib/parentSettings';
 import { useSessionTimer } from './hooks/useSessionTimer';
 import SplashScreen from './components/SplashScreen';
 import HelpModal from './components/HelpModal';
+import { generateProblem } from './game/generator';
 import { pack } from './content/reading';
 
 /**
@@ -378,7 +379,7 @@ function App() {
   const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
   const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 
-  const generateProblem = useCallback(() => {
+  const generateNewProblem = useCallback(() => {
     const diffKey = difficultyKey(difficulty);
     const themeWords = THEME_WORDS[theme][diffKey];
 
@@ -464,8 +465,8 @@ function App() {
   }, [difficulty, theme, gameMode]);
 
   useEffect(() => {
-    generateProblem();
-  }, [generateProblem]);
+    generateNewProblem();
+  }, [generateNewProblem]);
 
   useEffect(() => {
     setCurrentTargetPlant(plantAssetsRef.current[theme][Math.floor(Math.random() * plantAssetsRef.current[theme].length)]);
@@ -509,7 +510,7 @@ function App() {
           setSeeds(0);
           setCurrentTargetPlant(plantAssetsRef.current[theme][Math.floor(Math.random() * plantAssetsRef.current[theme].length)]);
           setIsAnimating(false);
-          generateProblem();
+          generateNewProblem();
         }, 2000);
       } else {
         setSeeds(newSeeds);
@@ -519,7 +520,7 @@ function App() {
             return;
           }
           setIsAnimating(false); 
-          generateProblem(); 
+          generateNewProblem(); 
         }, 1000);
       }
     } else {
@@ -543,7 +544,7 @@ function App() {
     setSeeds(0);
     setGarden([]);
     setShowResetModal(false);
-    generateProblem();
+    generateNewProblem();
   };
 
   const tiltAngle = 15 - (seeds * 3);

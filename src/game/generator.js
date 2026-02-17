@@ -1,6 +1,4 @@
-// src/game/generator.js
-// Reserved for reading-specific pack-driven generation.
+import { createGenerator } from 'sprouts-engine';
+import { pack } from '../content/reading';
 
-export function generateProblemFromPack() {
-  return { prompt: '', options: [], answer: '' };
-}
+export const generateProblem = createGenerator(pack);

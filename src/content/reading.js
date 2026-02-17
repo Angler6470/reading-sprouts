@@ -1,11 +1,12 @@
 // src/content/reading.js
 export const pack = {
   id: 'reading',
+  type: 'reading',
   title: 'Reading Sprouts',
   modes: [
-    { key: 'words', label: 'Theme Words' },
-    { key: 'sightwords', label: 'Sight Words' },
-    { key: 'stories', label: 'Stories' }
+    { key: 'phonics', label: 'Theme Words' },
+    { key: 'sight', label: 'Sight Words' },
+    { key: 'story', label: 'Stories' }
   ],
   themes: ['garden', 'ocean', 'space'],
   difficulties: ['beginner', 'intermediate', 'advanced'],
