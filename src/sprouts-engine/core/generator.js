@@ -2,6 +2,17 @@ const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
 
 /**
+ * Normalizes a value to a string for safe string operations
+ * @param {any} value - The value to normalize
+ * @returns {string} A string representation of the value
+ */
+const normalizeString = (value) => {
+  if (value === null || value === undefined) return '';
+  if (typeof value === 'string') return value;
+  return String(value);
+};
+
+/**
  * Factory: creates a problem generator function from a content pack.
  * Returns a function with signature: generateProblem({ mode, theme, difficulty, level })
  * that returns { prompt, options, answer, ... }
@@ -153,15 +164,16 @@ function generateReadingProblem(mode, theme, difficulty, banks) {
 
   if (mode === 'sight') {
     const sightWordsForDiff = SIGHT_WORDS[diffKey] || [];
-    const target = pick(sightWordsForDiff)?.toLowerCase() || '';
+    const pickedWord = pick(sightWordsForDiff);
+    const target = normalizeString(pickedWord).toLowerCase();
     if (!target) return { prompt: 'No sight words loaded.', options: [], answer: '' };
     
-    const samePool = sightWordsForDiff.filter(w => w.toLowerCase() !== target).map(w => w.toLowerCase());
+    const samePool = sightWordsForDiff.filter(w => normalizeString(w).toLowerCase() !== target).map(w => normalizeString(w).toLowerCase());
     const neighbourPool = (diffKey === 'advanced' ? SIGHT_WORDS['intermediate'] : SIGHT_WORDS['beginner']) || [];
-    const pool = shuffle([...samePool, ...neighbourPool.map(w => w.toLowerCase())]).filter(w => w !== target);
+    const pool = shuffle([...samePool, ...neighbourPool.map(w => normalizeString(w).toLowerCase())]).filter(w => w !== target);
     
     const candidates = [...new Set(pool)];
-    const options = shuffle([target, candidates[0] || pick(sightWordsForDiff), candidates[1] || pick(sightWordsForDiff)].map(w => (w || '').toLowerCase())).slice(0, 3);
+    const options = shuffle([target, normalizeString(candidates[0] || pick(sightWordsForDiff)).toLowerCase(), normalizeString(candidates[1] || pick(sightWordsForDiff)).toLowerCase()]).slice(0, 3);
     
     return {
       prompt: `Tap the sight word: "${target}"`,
