@@ -165,15 +165,24 @@ function generateReadingProblem(mode, theme, difficulty, banks) {
   if (mode === 'sight') {
     const sightWordsForDiff = SIGHT_WORDS[diffKey] || [];
     const pickedWord = pick(sightWordsForDiff);
-    const target = normalizeString(pickedWord).toLowerCase();
+    const target = normalizeString(pickedWord?.word ?? pickedWord).toLowerCase();
     if (!target) return { prompt: 'No sight words loaded.', options: [], answer: '' };
-    
-    const samePool = sightWordsForDiff.filter(w => normalizeString(w).toLowerCase() !== target).map(w => normalizeString(w).toLowerCase());
+    const samePool = sightWordsForDiff
+      .filter(w => normalizeString(w?.word ?? w).toLowerCase() !== target)
+      .map(w => normalizeString(w?.word ?? w).toLowerCase());
     const neighbourPool = (diffKey === 'advanced' ? SIGHT_WORDS['intermediate'] : SIGHT_WORDS['beginner']) || [];
-    const pool = shuffle([...samePool, ...neighbourPool.map(w => normalizeString(w).toLowerCase())]).filter(w => w !== target);
+    const pool = shuffle([
+      ...samePool,
+      ...neighbourPool.map(w => normalizeString(w?.word ?? w).toLowerCase())
+    ]).filter(w => w !== target);
+    const distractors = Array.isArray(pickedWord?.distractors) ? pickedWord.distractors.map(d => normalizeString(d).toLowerCase()) : [];
     
-    const candidates = [...new Set(pool)];
-    const options = shuffle([target, normalizeString(candidates[0] || pick(sightWordsForDiff)).toLowerCase(), normalizeString(candidates[1] || pick(sightWordsForDiff)).toLowerCase()]).slice(0, 3);
+    const candidates = [...new Set([...distractors, ...pool])];
+    const options = shuffle([
+      target,
+      normalizeString(candidates[0] || pick(sightWordsForDiff)?.word || pick(sightWordsForDiff)).toLowerCase(),
+      normalizeString(candidates[1] || pick(sightWordsForDiff)?.word || pick(sightWordsForDiff)).toLowerCase()
+    ]).slice(0, 3);
     
     return {
       prompt: `Tap the sight word: "${target}"`,
