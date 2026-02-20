@@ -7,12 +7,7 @@ import HelpModal from './components/HelpModal';
 import { generateProblem } from './game/generator';
 import { pack } from './content/reading';
 
-/**
- * Extract content from pack
- */
-const THEME_WORDS = pack.banks.words;
-const SIGHT_WORDS = pack.banks.sightwords;
-const STORY_TEMPLATES = pack.banks.stories;
+
 
 /**
  * Parent Panel Components
@@ -212,7 +207,6 @@ function App() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [currentTargetPlant, setCurrentTargetPlant] = useState('/assets/reading/bud-garden-reading.svg');
   const [showResetModal, setShowResetModal] = useState(false);
-  const recentProblemKeysRef = useRef([]);
   const [showSplash, setShowSplash] = useState(() => sessionStorage.getItem('reading_sprouts_seen_splash') !== '1');
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [hintedOptionIndex, setHintedOptionIndex] = useState(null);
@@ -396,96 +390,16 @@ function App() {
     saveParentSettings(newSettings);
   };
 
-  // Generate a new problem based on level and difficulty
-  const difficultyKey = (d) => (d === 'beginner' ? 'beginner' : d === 'advanced' ? 'advanced' : 'intermediate');
-
-  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
-  const shuffle = (arr) => [...arr].sort(() => Math.random() - 0.5);
-
+  // Generate a new problem using centralized engine
   const generateNewProblem = useCallback(() => {
-    const diffKey = difficultyKey(difficulty);
-    const themeWords = THEME_WORDS[theme][diffKey];
-
-    const recent = recentProblemKeysRef.current;
-    const recentSet = new Set(recent);
-
-    // Build one candidate problem (keeps logic readable)
-    const buildProblem = () => {
-      // 1) Phonics: choose the word that starts with the shown letter
-      if (gameMode === 'phonics') {
-        // Pick a correct word ensuring we have distinct distractor initials
-        let correctWord = pick(themeWords);
-        let letter = correctWord[0].toUpperCase();
-
-        // Build distractor pool from same difficulty first, then fall back
-        const poolSame = THEME_WORDS[theme][diffKey].filter(w => w !== correctWord && w[0].toUpperCase() !== letter);
-        const poolOther = themeWords.filter(w => w !== correctWord && w[0].toUpperCase() !== letter);
-        const distractPool = poolSame.length ? poolSame : poolOther;
-
-        // Choose two unique distractors
-        const dCandidates = shuffle(distractPool).slice(0, 2);
-        // If not enough unique distractors, fill with beginner words from the theme (distinct initials)
-        while (dCandidates.length < 2) {
-          const fallback = pick(THEME_WORDS[theme]['beginner'].filter(w => w !== correctWord && w[0].toUpperCase() !== letter));
-          if (!fallback || dCandidates.includes(fallback)) break;
-          dCandidates.push(fallback);
-        }
-
-        const options = shuffle([correctWord, ...dCandidates]).map(w => w.toLowerCase());
-        return {
-          prompt: `Which word starts with “${letter}”?`,
-          options,
-          answer: correctWord.toLowerCase()
-        };
-      }
-
-      // 2) Sight Words: tap the target sight word
-      if (gameMode === 'sight') {
-        // Target is picked from the selected difficulty; distractors come from same level first
-        const target = pick(SIGHT_WORDS[diffKey]).toLowerCase();
-        const samePool = SIGHT_WORDS[diffKey].filter(w => w.toLowerCase() !== target).map(w => w.toLowerCase());
-        const neighbourPool = (diffKey === 'advanced') ? SIGHT_WORDS['intermediate'] : SIGHT_WORDS['beginner'];
-        const pool = shuffle([...samePool, ...neighbourPool.map(w => w.toLowerCase())]).filter(w => w !== target);
-
-        const candidates = [...new Set(pool)];
-        const options = shuffle([target, candidates[0] || pick(SIGHT_WORDS['beginner']), candidates[1] || pick(SIGHT_WORDS['beginner'])].map(w => w.toLowerCase())).slice(0, 3);
-        return {
-          prompt: `Tap the sight word: “${target}”`,
-          options,
-          answer: target
-        };
-      }
-
-      // 3) Story Builder: fill in the missing word
-      if (gameMode === 'story') {
-        const tpl = pick(STORY_TEMPLATES[theme]);
-        const options = shuffle([tpl.a, ...tpl.d]).map(w => w.toLowerCase());
-        return {
-          prompt: tpl.t.replace('{__}', '____'),
-          options,
-          answer: tpl.a.toLowerCase()
-        };
-      }
-
-      return { prompt: '', options: [], answer: '' };
-    };
-
-    // Avoid immediate repeats (helps the app feel fair + varied)
-    let candidate = buildProblem();
-    let key = `${gameMode}|${difficulty}|${theme}|${candidate.prompt}|${candidate.answer}`;
-
-    for (let tries = 0; tries < 25 && recentSet.has(key); tries++) {
-      candidate = buildProblem();
-      key = `${gameMode}|${difficulty}|${theme}|${candidate.prompt}|${candidate.answer}`;
-    }
-
-    // Record key (keep last 12)
-    recent.push(key);
-    while (recent.length > 12) recent.shift();
-    recentProblemKeysRef.current = recent;
+    const candidate = generateProblem({
+      mode: gameMode,
+      theme,
+      difficulty
+    });
 
     setProblem(candidate);
-  }, [difficulty, theme, gameMode]);
+  }, [gameMode, theme, difficulty]);
 
   useEffect(() => {
     generateNewProblem();
