@@ -207,6 +207,7 @@ function App() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [currentTargetPlant, setCurrentTargetPlant] = useState('/assets/reading/bud-garden-reading.svg');
   const [showResetModal, setShowResetModal] = useState(false);
+  const recentProblemKeysRef = useRef([]);
   const [showSplash, setShowSplash] = useState(() => sessionStorage.getItem('reading_sprouts_seen_splash') !== '1');
   const [showHelpModal, setShowHelpModal] = useState(false);
   const [hintedOptionIndex, setHintedOptionIndex] = useState(null);
@@ -390,13 +391,35 @@ function App() {
     saveParentSettings(newSettings);
   };
 
-  // Generate a new problem using centralized engine
+  // Generate a new problem using centralized engine with duplicate avoidance
   const generateNewProblem = useCallback(() => {
-    const candidate = generateProblem({
+    const recent = recentProblemKeysRef.current;
+    const recentSet = new Set(recent);
+
+    // Generate one candidate problem
+    let candidate = generateProblem({
       mode: gameMode,
       theme,
       difficulty
     });
+
+    // Create unique key for this problem
+    let key = `${gameMode}|${difficulty}|${theme}|${candidate.prompt}|${candidate.answer}`;
+
+    // Try up to 25 times to avoid recent duplicates
+    for (let tries = 0; tries < 25 && recentSet.has(key); tries++) {
+      candidate = generateProblem({
+        mode: gameMode,
+        theme,
+        difficulty
+      });
+      key = `${gameMode}|${difficulty}|${theme}|${candidate.prompt}|${candidate.answer}`;
+    }
+
+    // Record this problem key (keep last 8 for 1-in-8 uniqueness)
+    recent.push(key);
+    while (recent.length > 8) recent.shift();
+    recentProblemKeysRef.current = recent;
 
     setProblem(candidate);
   }, [gameMode, theme, difficulty]);
