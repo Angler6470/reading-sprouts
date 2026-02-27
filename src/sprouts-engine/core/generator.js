@@ -177,11 +177,11 @@ function generateReadingProblem(mode, theme, difficulty, banks) {
       dCandidates.push(fallback);
     }
 
-    const options = shuffle([correctWord, ...dCandidates]).map(w => w.toLowerCase());
+    const options = shuffle([correctWord, ...dCandidates]).map(w => (w || '').toLowerCase());
     return {
       prompt: `Which word starts with "${letter}"?`,
       options,
-      answer: correctWord.toLowerCase()
+      answer: (correctWord || '').toLowerCase()
     };
   }
 
@@ -219,11 +219,11 @@ function generateReadingProblem(mode, theme, difficulty, banks) {
     const tpl = pick(stories);
     if (!tpl) return { prompt: 'No stories loaded.', options: [], answer: '' };
 
-    const options = shuffle([tpl.a, ...tpl.d]).map(w => w.toLowerCase());
+    const options = shuffle([(tpl.a || ''), ...(tpl.d || [])]).map(w => (w || '').toLowerCase());
     return {
-      prompt: tpl.t.replace('{__}', '____'),
+      prompt: (tpl.t || '').replace('{__}', '____'),
       options,
-      answer: tpl.a.toLowerCase()
+      answer: (tpl.a || '').toLowerCase()
     };
   }
 
